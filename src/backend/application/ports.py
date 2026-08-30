@@ -6,9 +6,7 @@ from backend.domain.entities import Comment, Post, PostStatus, User
 
 
 class TransactionManager(Protocol):
-    def transaction(self) -> AbstractAsyncContextManager[None]:
-        """Boundary of an atomic operation: commit on exit, rollback on exception."""
-        ...
+    def transaction(self) -> AbstractAsyncContextManager[None]: ...
 
 
 class UsersPort(Protocol):
@@ -47,8 +45,6 @@ class CommentsPort(Protocol):
 
 
 class PersistenceGateway(Protocol):
-    """Everything the application layer knows about storage. Implemented in infrastructure."""
-
     manager: TransactionManager
     users: UsersPort
     posts: PostsPort

@@ -41,9 +41,6 @@ async def _make_post(gateway: FakeGateway, author_id: uuid.UUID, title: str = "P
     )
 
 
-# --- users ---
-
-
 async def test_create_user_normalizes_email_and_commits(gateway: FakeGateway) -> None:
     dto = await _make_user(gateway, email="  A@Example.COM ")
 
@@ -68,9 +65,6 @@ async def test_duplicate_user_conflicts_and_rolls_back(gateway: FakeGateway) -> 
         await _make_user(gateway)
 
     assert gateway.manager.rollbacks == 1
-
-
-# --- posts ---
 
 
 async def test_create_post_for_missing_author_raises_not_found(gateway: FakeGateway) -> None:
@@ -149,9 +143,6 @@ async def test_list_posts_filters_by_status(gateway: FakeGateway) -> None:
 
     assert [p.id for p in result] == [published.id]
     assert draft.id not in [p.id for p in result]
-
-
-# --- comments ---
 
 
 async def test_comment_on_draft_is_rejected(gateway: FakeGateway) -> None:

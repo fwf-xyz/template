@@ -12,10 +12,6 @@ from backend.infrastructure.persistence.tables import comments_table, posts_tabl
 
 
 class SqlUsersAdapter:
-    """UsersPort implementation: SQL, row-to-entity mapping, and translation
-    of SQLAlchemy errors into application errors. Does not manage transactions.
-    """
-
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 

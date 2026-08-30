@@ -4,8 +4,6 @@ from datetime import datetime
 
 from backend.domain.entities import PostStatus
 
-# --- users ---
-
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class CreateUserCommand:
@@ -29,9 +27,6 @@ class UserDTO:
     email: str
     username: str
     created_at: datetime
-
-
-# --- posts ---
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -86,9 +81,6 @@ class PostDTO:
     created_at: datetime
     updated_at: datetime
     published_at: datetime | None
-
-
-# --- comments ---
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

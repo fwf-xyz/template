@@ -26,7 +26,6 @@ class CreatePostHandler:
             id=uuid.uuid4(), author_id=cmd.author_id, title=cmd.title, content=cmd.content
         )
         async with self.gateway.manager.transaction():
-            # The author is checked in the same transaction as the post insert.
             await self.gateway.users.get_by_id(cmd.author_id)
             saved = await self.gateway.posts.add(post)
         return present_post(saved)
