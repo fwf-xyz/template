@@ -1,11 +1,9 @@
 import uuid
 from datetime import UTC, datetime
 
+from backend.domain.constants import MAX_CONTENT_LENGTH, MAX_TITLE_LENGTH
 from backend.domain.entities import Note
 from backend.domain.exceptions import InvalidNoteError
-
-MAX_TITLE_LENGTH = 200
-MAX_CONTENT_LENGTH = 10_000
 
 
 def build_note(*, id: uuid.UUID, title: str, content: str) -> Note:
