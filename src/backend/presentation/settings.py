@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    database_url: str = "postgresql+asyncpg://notes:notes@127.0.0.1:5432/notes"
+    database_url: str = "postgresql+asyncpg://blog:blog@127.0.0.1:5432/blog"
     db_echo: bool = False
     db_pool_size: int = 10
     db_max_overflow: int = 10

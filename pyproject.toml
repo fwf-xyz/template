@@ -1,7 +1,7 @@
 [project]
-name = "notes-api"
+name = "blog-api"
 version = "0.1.0"
-description = "Учебный CRUD-шаблон: FastAPI + dishka + SQLAlchemy, слои domain/application/infrastructure/presentation"
+description = "Layered blog API: FastAPI + dishka + SQLAlchemy, domain/application/infrastructure/presentation"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",

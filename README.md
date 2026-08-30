@@ -1,8 +1,10 @@
-# Notes API
+# Blog API
 
-Layered CRUD template: FastAPI + dishka (DI) + async SQLAlchemy + Postgres + Alembic.
-The domain knows nothing about the database or HTTP, use cases work through ports,
-and transaction boundaries are owned by handlers.
+Layered blog API: FastAPI + dishka (DI) + async SQLAlchemy + Postgres + Alembic.
+Users write posts, posts move through a `draft → published → archived` lifecycle,
+and comments are allowed only on published posts. The domain knows nothing about
+the database or HTTP, use cases work through ports, and transaction boundaries
+are owned by handlers.
 
 ## Tech stack
 
@@ -31,12 +33,13 @@ and transaction boundaries are owned by handlers.
 
 ```
 src/backend/
-├── domain/            # pure business rules: Note entity, build/patch, invariants
-│   ├── entities.py    #   Note dataclass — unaware of the DB and HTTP
-│   ├── services.py    #   build_note / apply_note_patch + invariant validation
-│   └── exceptions.py  #   DomainError
+├── domain/            # pure business rules, no I/O
+│   ├── entities.py    #   User, Post (+ PostStatus), Comment — plain dataclasses
+│   ├── services.py    #   build/patch/publish/archive + invariant validation
+│   ├── constants.py   #   length limits and other invariants
+│   └── exceptions.py  #   DomainError, PostStatusError, ...
 ├── application/       # use-case orchestration through ports
-│   ├── ports.py       #   Protocols: TransactionManager, NotesPort, PersistenceGateway
+│   ├── ports.py       #   Protocols: TransactionManager, Users/Posts/CommentsPort, Gateway
 │   ├── handlers/      #   one handler per use case; write handlers open a transaction
 │   ├── dtos.py        #   commands/queries/DTOs (dataclasses, not pydantic)
 │   ├── presenters.py  #   domain entity -> DTO
@@ -45,8 +48,8 @@ src/backend/
 │   └── persistence/
 │       ├── session.py   # engine (connection pool) + session_factory
 │       ├── manager.py   # TransactionManagerImpl — transaction boundaries
-│       ├── tables.py    # SQLAlchemy Core Table (no ORM models)
-│       ├── adapters.py  # SqlNotesAdapter: SQL, row -> Note mapping, error translation
+│       ├── tables.py    # SQLAlchemy Core tables (no ORM models)
+│       ├── adapters.py  # SQL, row -> entity mapping, error translation
 │       └── gateway.py   # PersistenceGatewayImpl = manager + adapters
 └── presentation/      # HTTP edge
     ├── app.py         #   app factory + error handlers
@@ -54,6 +57,15 @@ src/backend/
     ├── di/            #   dishka: APP scope (engine) and REQUEST scope (session, gateway)
     └── http/          #   routes (thin glue) + pydantic schemas
 ```
+
+## Domain rules
+
+- A new post is always a `draft`; only a draft can be published; nothing leaves `archived`.
+- An archived post is read-only.
+- Comments are allowed only on published posts — checked inside the same transaction
+  as the insert, so a post cannot be archived in between.
+- Emails are normalized to lowercase; email and username are unique.
+- Deleting a user cascades to their posts and comments.
 
 ## Getting started
 
@@ -76,8 +88,24 @@ uv run ruff check .
 
 ## API
 
-- `POST /notes` — create (409 on duplicate title)
-- `GET /notes/{id}` — get one
-- `GET /notes?limit=&offset=` — list
-- `PATCH /notes/{id}` — partial update
-- `DELETE /notes/{id}` — delete
+Users:
+
+- `POST /users` — create (409 on duplicate email/username)
+- `GET /users/{id}`
+- `DELETE /users/{id}` — cascades to posts and comments
+
+Posts:
+
+- `POST /posts` — create a draft (404 if the author does not exist)
+- `GET /posts/{id}`
+- `GET /posts?limit=&offset=&author_id=&status=` — list with filters
+- `PATCH /posts/{id}` — partial update (409 if archived)
+- `POST /posts/{id}/publish` — draft only (409 otherwise)
+- `POST /posts/{id}/archive`
+- `DELETE /posts/{id}`
+
+Comments:
+
+- `POST /posts/{id}/comments` — published posts only (409 otherwise)
+- `GET /posts/{id}/comments?limit=&offset=`
+- `DELETE /comments/{id}`

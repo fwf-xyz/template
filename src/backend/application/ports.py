@@ -2,7 +2,7 @@ import uuid
 from contextlib import AbstractAsyncContextManager
 from typing import Protocol
 
-from backend.domain.entities import Note
+from backend.domain.entities import Comment, Post, PostStatus, User
 
 
 class TransactionManager(Protocol):
@@ -11,20 +11,45 @@ class TransactionManager(Protocol):
         ...
 
 
-class NotesPort(Protocol):
-    async def get_by_id(self, note_id: uuid.UUID) -> Note: ...
+class UsersPort(Protocol):
+    async def get_by_id(self, user_id: uuid.UUID) -> User: ...
 
-    async def get_many(self, *, limit: int, offset: int) -> list[Note]: ...
+    async def add(self, user: User) -> User: ...
 
-    async def add(self, note: Note) -> Note: ...
+    async def delete(self, user_id: uuid.UUID) -> bool: ...
 
-    async def update(self, note: Note) -> Note: ...
 
-    async def delete(self, note_id: uuid.UUID) -> bool: ...
+class PostsPort(Protocol):
+    async def get_by_id(self, post_id: uuid.UUID) -> Post: ...
+
+    async def get_many(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        author_id: uuid.UUID | None = None,
+        status: PostStatus | None = None,
+    ) -> list[Post]: ...
+
+    async def add(self, post: Post) -> Post: ...
+
+    async def update(self, post: Post) -> Post: ...
+
+    async def delete(self, post_id: uuid.UUID) -> bool: ...
+
+
+class CommentsPort(Protocol):
+    async def get_many(self, *, post_id: uuid.UUID, limit: int, offset: int) -> list[Comment]: ...
+
+    async def add(self, comment: Comment) -> Comment: ...
+
+    async def delete(self, comment_id: uuid.UUID) -> bool: ...
 
 
 class PersistenceGateway(Protocol):
     """Всё, что application-слой знает о хранилище. Реализация живёт в infrastructure."""
 
     manager: TransactionManager
-    notes: NotesPort
+    users: UsersPort
+    posts: PostsPort
+    comments: CommentsPort
