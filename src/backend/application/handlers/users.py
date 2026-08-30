@@ -38,7 +38,7 @@ class DeleteUserHandler:
     gateway: PersistenceGateway
 
     async def __call__(self, cmd: DeleteUserCommand, /) -> None:
-        # Посты и комментарии автора удалит каскад на уровне БД (ON DELETE CASCADE).
+        # The author's posts and comments are removed by DB-level ON DELETE CASCADE.
         async with self.gateway.manager.transaction():
             deleted = await self.gateway.users.delete(cmd.user_id)
             if not deleted:

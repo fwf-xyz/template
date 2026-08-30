@@ -1,5 +1,5 @@
 class DomainError(Exception):
-    """Нарушение бизнес-инварианта. HTTP-слой маппит её в 400."""
+    """A business invariant violation. The HTTP layer maps it to 400."""
 
 
 class InvalidUserError(DomainError): ...
@@ -12,4 +12,4 @@ class InvalidCommentError(DomainError): ...
 
 
 class PostStatusError(DomainError):
-    """Действие невозможно в текущем статусе поста. HTTP-слой маппит её в 409."""
+    """The action is not allowed in the post's current status. Maps to 409."""

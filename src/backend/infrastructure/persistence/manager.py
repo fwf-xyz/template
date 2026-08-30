@@ -5,11 +5,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class TransactionManagerImpl:
-    """Границы транзакций поверх одной request-scoped сессии.
+    """Transaction boundaries on top of a single request-scoped session.
 
-    Сессия живёт весь HTTP-запрос (её выдаёт DI), транзакция — только внутри
-    `transaction()`. Вложенный вызов не открывает вторую транзакцию, а живёт
-    в уже открытой — commit/rollback делает только внешняя граница.
+    The session lives for the whole HTTP request (provided by DI), while a
+    transaction exists only inside `transaction()`. A nested call does not open
+    a second transaction — it joins the already open one, and only the outermost
+    boundary commits or rolls back.
     """
 
     def __init__(self, session: AsyncSession) -> None:

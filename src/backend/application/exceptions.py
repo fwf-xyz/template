@@ -2,7 +2,7 @@ from typing import ClassVar
 
 
 class AppError(Exception):
-    """Базовая ошибка приложения: ловится на HTTP-краю и превращается в JSON-ответ."""
+    """Base application error: caught at the HTTP edge and turned into a JSON response."""
 
     status_code: ClassVar[int] = 400
     code: ClassVar[str] = "app.error"

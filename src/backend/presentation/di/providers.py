@@ -10,7 +10,7 @@ from backend.presentation.settings import Settings
 
 
 class AppProvider(Provider):
-    """Scope.APP — на всё время жизни процесса: пул соединений и фабрика сессий."""
+    """Scope.APP — lives for the whole process: connection pool and session factory."""
 
     def __init__(self, settings: Settings) -> None:
         super().__init__()
@@ -33,7 +33,7 @@ class AppProvider(Provider):
 
 
 class RequestProvider(Provider):
-    """Scope.REQUEST — на один HTTP-запрос: одна сессия и гейтвей поверх неё."""
+    """Scope.REQUEST — per HTTP request: one session and a gateway on top of it."""
 
     @provide(scope=Scope.REQUEST)
     async def session(

@@ -18,8 +18,8 @@ class CreateCommentHandler:
     gateway: PersistenceGateway
 
     async def __call__(self, cmd: CreateCommentCommand, /) -> CommentDTO:
-        # Статус поста проверяется в той же транзакции, что и вставка комментария:
-        # пост не может быть заархивирован между проверкой и записью.
+        # The post status is checked in the same transaction as the comment insert:
+        # the post cannot get archived between the check and the write.
         async with self.gateway.manager.transaction():
             post = await self.gateway.posts.get_by_id(cmd.post_id)
             await self.gateway.users.get_by_id(cmd.author_id)
