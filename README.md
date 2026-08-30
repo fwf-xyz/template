@@ -1,80 +1,73 @@
-# Notes API — учебный CRUD-шаблон
+# Notes API
 
-FastAPI + dishka (DI) + SQLAlchemy (async) + Postgres + Alembic.
-Слоистая архитектура: домен не знает про БД и HTTP, use-case'ы работают через порты,
-границами транзакций владеют хендлеры.
+Layered CRUD template: FastAPI + dishka (DI) + async SQLAlchemy + Postgres + Alembic.
+The domain knows nothing about the database or HTTP, use cases work through ports,
+and transaction boundaries are owned by handlers.
 
-## Слои
+## Tech stack
+
+### Runtime
+
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Pydantic](https://img.shields.io/badge/Pydantic-E92063?logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
+[![Uvicorn](https://img.shields.io/badge/Uvicorn-499848?logo=uvicorn&logoColor=white)](https://www.uvicorn.org/)
+[![Dishka](https://img.shields.io/badge/Dishka-DI-4B5563)](https://github.com/reagento/dishka)
+
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-D71F00?logo=sqlalchemy&logoColor=white)](https://www.sqlalchemy.org/)
+[![asyncpg](https://img.shields.io/badge/asyncpg-driver-2D3748)](https://github.com/MagicStack/asyncpg)
+[![Alembic](https://img.shields.io/badge/Alembic-migrations-8A2BE2)](https://alembic.sqlalchemy.org/)
+
+[![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Docker Compose](https://img.shields.io/badge/Docker%20Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+
+### Tooling & Quality
+
+[![uv](https://img.shields.io/badge/uv-package%20manager-6A5ACD)](https://docs.astral.sh/uv/)
+[![Ruff](https://img.shields.io/badge/Ruff-lint%2Fformat-D7FF64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
+[![Pytest](https://img.shields.io/badge/Pytest-tests-0A9EDC?logo=pytest&logoColor=white)](https://docs.pytest.org/)
+
+## Layers
 
 ```
 src/backend/
-├── domain/            # чистые бизнес-правила: сущность Note, build/patch, инварианты
-│   ├── entities.py    #   dataclass Note — не знает ни про БД, ни про HTTP
-│   ├── services.py    #   build_note / apply_note_patch + валидация инвариантов
+├── domain/            # pure business rules: Note entity, build/patch, invariants
+│   ├── entities.py    #   Note dataclass — unaware of the DB and HTTP
+│   ├── services.py    #   build_note / apply_note_patch + invariant validation
 │   └── exceptions.py  #   DomainError
-├── application/       # оркестрация use-case'ов через порты
-│   ├── ports.py       #   Protocol'ы: TransactionManager, NotesPort, PersistenceGateway
-│   ├── handlers/      #   по хендлеру на use-case; write-хендлеры открывают транзакцию
-│   ├── dtos.py        #   команды/запросы/DTO (dataclass'ы, не pydantic)
-│   ├── presenters.py  #   доменная сущность -> DTO
+├── application/       # use-case orchestration through ports
+│   ├── ports.py       #   Protocols: TransactionManager, NotesPort, PersistenceGateway
+│   ├── handlers/      #   one handler per use case; write handlers open a transaction
+│   ├── dtos.py        #   commands/queries/DTOs (dataclasses, not pydantic)
+│   ├── presenters.py  #   domain entity -> DTO
 │   └── exceptions.py  #   AppError / NotFoundError / ConflictError
-├── infrastructure/    # реализация портов поверх SQLAlchemy
+├── infrastructure/    # port implementations on top of SQLAlchemy
 │   └── persistence/
-│       ├── session.py   # engine (пул) + session_factory
-│       ├── manager.py   # TransactionManagerImpl — границы транзакций
-│       ├── tables.py    # SQLAlchemy Core Table (без ORM-моделей)
-│       ├── adapters.py  # SqlNotesAdapter: SQL, маппинг строк -> Note, перевод ошибок
-│       └── gateway.py   # PersistenceGatewayImpl = manager + адаптеры
-└── presentation/      # HTTP-край
-    ├── app.py         #   фабрика приложения + error handler'ы
+│       ├── session.py   # engine (connection pool) + session_factory
+│       ├── manager.py   # TransactionManagerImpl — transaction boundaries
+│       ├── tables.py    # SQLAlchemy Core Table (no ORM models)
+│       ├── adapters.py  # SqlNotesAdapter: SQL, row -> Note mapping, error translation
+│       └── gateway.py   # PersistenceGatewayImpl = manager + adapters
+└── presentation/      # HTTP edge
+    ├── app.py         #   app factory + error handlers
     ├── settings.py    #   pydantic-settings, env
-    ├── di/            #   dishka: APP-scope (engine) и REQUEST-scope (session, gateway)
-    └── http/          #   ручки (тонкий клей) + pydantic-схемы
+    ├── di/            #   dishka: APP scope (engine) and REQUEST scope (session, gateway)
+    └── http/          #   routes (thin glue) + pydantic schemas
 ```
 
-## Путь запроса (например, `PATCH /notes/{id}`)
-
-1. **Ручка** ([routing/notes.py](src/backend/presentation/http/routing/notes.py)) — получает
-   из DI готовый `PersistenceGateway`, переливает pydantic-схему в команду-DTO,
-   создаёт хендлер и вызывает его. Логики в ручке нет.
-2. **DI** ([di/providers.py](src/backend/presentation/di/providers.py)) — dishka резолвит цепочку:
-   `session_factory` (APP-scope, один на процесс) → `AsyncSession` (REQUEST-scope,
-   **одна сессия на запрос**, закрывается после ответа) → `PersistenceGatewayImpl(session)`.
-3. **Хендлер** ([handlers/notes.py](src/backend/application/handlers/notes.py)) — открывает
-   границу транзакции `async with gateway.manager.transaction():` и внутри неё:
-   читает сущность → мутирует через доменный сервис (валидация инвариантов) → сохраняет.
-   Упал любой шаг — rollback всего.
-4. **Адаптер** ([persistence/adapters.py](src/backend/infrastructure/persistence/adapters.py)) —
-   выполняет SQL на той же сессии, маппит строки в доменную `Note`, переводит
-   `IntegrityError` → `ConflictError`, «нет строки» → `NotFoundError`. Транзакциями не управляет.
-5. **Ошибки** — на HTTP-краю ([app.py](src/backend/presentation/app.py)) два хендлера:
-   `AppError` → статус из ошибки (404/409/…), `DomainError` → 400.
-
-## Ключевые решения (и почему)
-
-- **Сессия ≠ транзакция.** Сессия живёт весь запрос (REQUEST-scope в DI), транзакция —
-  коротко, только внутри write-хендлера. Read-хендлеры транзакцию не открывают.
-- **Границы транзакции задаёт use-case, а не CRUD.** Адаптеры ничего не коммитят —
-  иначе нельзя собрать несколько операций в одну атомарную (см. `UpdateNoteHandler`).
-- **Application зависит от `Protocol`-портов, а не от SQLAlchemy** — хендлеры тестируются
-  фейками без БД (см. [tests/test_note_handlers.py](tests/test_note_handlers.py)).
-- **Ошибки переводятся на границах**: SQLAlchemy-исключения не поднимаются выше адаптера,
-  доменные — выше HTTP-края.
-- **Валидация формы — на краю (pydantic), инварианты — в домене** (`build_note` / `apply_note_patch`).
-
-## Запуск
+## Getting started
 
 ```bash
 docker compose up -d                  # Postgres
 cp .env.example .env
-uv sync                               # или: python3 -m venv .venv && .venv/bin/pip install -e . --group dev
+uv sync                               # or: python3 -m venv .venv && .venv/bin/pip install -e . --group dev
 uv run alembic upgrade head
 uv run python -m backend              # http://127.0.0.1:8000/docs
 ```
 
-Если порт 8000 занят: `APP_PORT=8010 uv run python -m backend`.
+If port 8000 is taken: `APP_PORT=8010 uv run python -m backend`.
 
-## Проверки
+## Checks
 
 ```bash
 uv run pytest
@@ -83,8 +76,8 @@ uv run ruff check .
 
 ## API
 
-- `POST /notes` — создать (409 при дубле title)
-- `GET /notes/{id}` — получить
-- `GET /notes?limit=&offset=` — список
-- `PATCH /notes/{id}` — частичное обновление
-- `DELETE /notes/{id}` — удалить
+- `POST /notes` — create (409 on duplicate title)
+- `GET /notes/{id}` — get one
+- `GET /notes?limit=&offset=` — list
+- `PATCH /notes/{id}` — partial update
+- `DELETE /notes/{id}` — delete
