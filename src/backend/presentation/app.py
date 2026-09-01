@@ -22,7 +22,7 @@ def create_app() -> FastAPI:
         yield
         await container.close()
 
-    app = FastAPI(title="Notes API", lifespan=lifespan)
+    app = FastAPI(title="Blog API", lifespan=lifespan)
     setup_dishka(container, app)
     app.add_exception_handler(AppError, _app_error_handler)
     app.add_exception_handler(DomainError, _domain_error_handler)
